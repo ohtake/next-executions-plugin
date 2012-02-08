@@ -1,5 +1,6 @@
 package hudson.plugins.nextexecutions.utils;
 
+import java.lang.reflect.Field;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -10,6 +11,7 @@ import antlr.ANTLRException;
 import hudson.model.AbstractProject;
 import hudson.plugins.nextexecutions.NextBuilds;
 import hudson.scheduler.CronTab;
+import hudson.scheduler.CronTabList;
 import hudson.triggers.TimerTrigger;
 import hudson.triggers.Trigger;
 
@@ -25,9 +27,23 @@ public class NextExecutionsUtils {
 		if(!project.isDisabled()){
 			Trigger trigger = project.getTrigger(TimerTrigger.class);
 			if(trigger != null){
-				List<CronTab> crons = parseSpec(trigger.getSpec());
+				Vector<CronTab> tabs;
+				try {
+					Field fieldTriggerTabs = Trigger.class.getDeclaredField("tabs");
+					fieldTriggerTabs.setAccessible(true);
+					Field fieldCronTabListTabs = CronTabList.class.getDeclaredField("tabs");
+					fieldCronTabListTabs.setAccessible(true);
+					CronTabList crontablist = (CronTabList)fieldTriggerTabs.get(trigger);
+					tabs = (Vector<CronTab>) fieldCronTabListTabs.get(crontablist);
+				} catch (NoSuchFieldException ex) {
+					ex.printStackTrace();
+					throw new NoSuchFieldError();
+				} catch (IllegalAccessException ex) {
+					ex.printStackTrace();
+					throw new IllegalAccessError();
+				}
 				Calendar cal = null;
-				for (CronTab cronTab : crons) {
+				for (CronTab cronTab : tabs) {
 					Date d = new Date();				
 					cal = (cal == null || cal.compareTo(cronTab.ceil(d.getTime())) > 0)? cronTab.ceil(d.getTime()) : cal;					
 				}
